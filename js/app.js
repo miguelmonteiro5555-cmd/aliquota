@@ -16,11 +16,13 @@
   const destaque = (titulo, valor, nota) =>
     `<div class="destaque"><span>${titulo}</span><strong>${valor}</strong><small>${nota}</small></div>`;
 
+  let abrindo = true;
+
   function mostrar(id, html) {
     const el = document.getElementById(id);
     el.innerHTML = html;
     el.hidden = false;
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (!abrindo) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   const erro = (id, msg) => mostrar(id, `<p class="erro">${msg}</p>`);
@@ -41,16 +43,165 @@
 
   document.getElementById('ano-tabelas').textContent = TABELAS.ano;
 
-  // Listas preenchidas a partir das tabelas
-  document.querySelectorAll('.sel-atividade').forEach((sel) => {
-    Object.entries(TABELAS.irpj.presuncao).forEach(([chave, a]) => {
-      sel.add(new Option(`${a.nome} — presunção ${pct(a.percentual, 1)}`, chave));
+  // Alíquotas ajustáveis: cada campo aponta para um valor em TABELAS
+  const PADRAO = JSON.parse(JSON.stringify(TABELAS));
+  const CHAVE_AJUSTES = 'aliquota:ajustes';
+  const pegar = (obj, caminho) => caminho.reduce((o, k) => o[k], obj);
+  const definir = (obj, caminho, valor) => {
+    pegar(obj, caminho.slice(0, -1))[caminho[caminho.length - 1]] = valor;
+  };
+
+  const grupos = [
+    {
+      titulo: 'IRPJ',
+      campos: [
+        { rotulo: 'Alíquota do IRPJ', caminho: ['irpj', 'aliquota'], tipo: 'pct' },
+        { rotulo: 'Adicional', caminho: ['irpj', 'adicional'], tipo: 'pct' },
+        { rotulo: 'Lucro mensal livre do adicional (R$)', caminho: ['irpj', 'limiteAdicionalMensal'], tipo: 'brl' },
+        ...Object.entries(TABELAS.irpj.presuncao).map(([chave, a]) => ({
+          rotulo: `Presunção — ${a.nome}`,
+          caminho: ['irpj', 'presuncao', chave, 'percentual'],
+          tipo: 'pct',
+        })),
+      ],
+    },
+    {
+      titulo: 'INSS da empresa',
+      campos: [
+        { rotulo: 'Patronal (folha e pró-labore)', caminho: ['inss', 'patronal'], tipo: 'pct' },
+        { rotulo: 'Terceiros (padrão)', caminho: ['inss', 'terceirosPadrao'], tipo: 'pct' },
+        { rotulo: 'Retido do sócio no pró-labore', caminho: ['inss', 'socioProLabore'], tipo: 'pct' },
+        ...TABELAS.inss.ratOpcoes.map((_, i) => ({
+          rotulo: `RAT — risco ${['leve', 'médio', 'grave'][i]}`,
+          caminho: ['inss', 'ratOpcoes', i],
+          tipo: 'pct',
+        })),
+      ],
+    },
+    {
+      titulo: 'INSS do empregado (faixas)',
+      campos: TABELAS.inss.faixas.flatMap((_, i) => [
+        { rotulo: `Faixa ${i + 1} — alíquota`, caminho: ['inss', 'faixas', i, 'aliquota'], tipo: 'pct' },
+        { rotulo: `Faixa ${i + 1} — até (R$)`, caminho: ['inss', 'faixas', i, 'ate'], tipo: 'brl' },
+      ]),
+    },
+    {
+      titulo: 'ISS',
+      campos: [{ rotulo: 'Alíquota padrão do município', caminho: ['iss', 'padrao'], tipo: 'pct' }],
+    },
+  ];
+  const todosCampos = grupos.flatMap((g) => g.campos);
+  const idCampo = (c) => 'ajuste-' + c.caminho.join('-');
+  const formatarAjuste = (c, v) =>
+    c.tipo === 'pct'
+      ? (v * 100).toLocaleString('pt-BR', { maximumFractionDigits: 4 })
+      : v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  document.getElementById('campos-ajustes').innerHTML = grupos
+    .map(
+      (g) => `
+      <fieldset class="grupo-ajustes">
+        <legend>${g.titulo}</legend>
+        <div class="grade-ajustes">
+          ${g.campos
+            .map(
+              (c) => `<label for="${idCampo(c)}">${c.rotulo}${c.tipo === 'pct' ? ' (%)' : ''}
+                <input type="text" inputmode="decimal" id="${idCampo(c)}">
+              </label>`
+            )
+            .join('')}
+        </div>
+      </fieldset>`
+    )
+    .join('');
+
+  function mostrarAjustes() {
+    todosCampos.forEach((c) => {
+      document.getElementById(idCampo(c)).value = formatarAjuste(c, pegar(TABELAS, c.caminho));
     });
-  });
+  }
+
+  /** Atualiza listas e valores iniciais dos formulários que dependem das alíquotas. */
+  function atualizarFormularios() {
+    document.querySelectorAll('.sel-atividade').forEach((sel) => {
+      const escolhido = sel.value;
+      sel.innerHTML = '';
+      Object.entries(TABELAS.irpj.presuncao).forEach(([chave, a]) => {
+        sel.add(new Option(`${a.nome} — presunção ${pct(a.percentual, 1)}`, chave));
+      });
+      if (escolhido) sel.value = escolhido;
+    });
+    document.querySelectorAll('.sel-rat').forEach((sel) => {
+      const indice = sel.selectedIndex >= 0 ? sel.selectedIndex : 1;
+      sel.innerHTML = '';
+      TABELAS.inss.ratOpcoes.forEach((r, i) => sel.add(new Option(`${pct(r, 1)} — risco ${nomesRisco[i]}`, r)));
+      sel.selectedIndex = indice;
+    });
+    const issPadrao = formatarAjuste({ tipo: 'pct' }, TABELAS.iss.padrao);
+    document.querySelector('#form-resumo [name=iss]').value = issPadrao;
+    document.querySelector('#form-iss [name=aliquota]').value = issPadrao;
+    document.querySelector('#form-inss [name=terceiros]').value = formatarAjuste({ tipo: 'pct' }, TABELAS.inss.terceirosPadrao);
+  }
+
+  function aplicarSalvos() {
+    let salvos = {};
+    try {
+      salvos = JSON.parse(localStorage.getItem(CHAVE_AJUSTES) || '{}');
+    } catch (_) {
+      salvos = {};
+    }
+    todosCampos.forEach((c) => {
+      const v = salvos[c.caminho.join('.')];
+      if (typeof v === 'number' && Number.isFinite(v)) definir(TABELAS, c.caminho, v);
+    });
+  }
+
   const nomesRisco = ['leve', 'médio', 'grave'];
-  document.querySelectorAll('.sel-rat').forEach((sel) => {
-    TABELAS.inss.ratOpcoes.forEach((r, i) => sel.add(new Option(`${pct(r, 0)} — risco ${nomesRisco[i]}`, r)));
-    sel.value = TABELAS.inss.ratOpcoes[1];
+  aplicarSalvos();
+  mostrarAjustes();
+  atualizarFormularios();
+
+  const statusAjustes = document.getElementById('status-ajustes');
+  document.getElementById('form-ajustes').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const novos = {};
+    for (const c of todosCampos) {
+      const texto = document.getElementById(idCampo(c)).value.trim();
+      const n = numero(texto);
+      if (!/^-?[\d.,]+$/.test(texto) || n < 0 || (c.tipo === 'pct' && n >= 100)) {
+        statusAjustes.textContent = `Revise “${c.rotulo}”: use um número${c.tipo === 'pct' ? ' entre 0 e 100' : ' maior ou igual a zero'}.`;
+        statusAjustes.className = 'status erro';
+        document.getElementById(idCampo(c)).focus();
+        return;
+      }
+      novos[c.caminho.join('.')] = c.tipo === 'pct' ? n / 100 : n;
+    }
+    todosCampos.forEach((c) => definir(TABELAS, c.caminho, novos[c.caminho.join('.')]));
+    let salvou = true;
+    try {
+      localStorage.setItem(CHAVE_AJUSTES, JSON.stringify(novos));
+    } catch (_) {
+      salvou = false;
+    }
+    mostrarAjustes();
+    atualizarFormularios();
+    statusAjustes.textContent = salvou
+      ? 'Alíquotas salvas. Os próximos cálculos já usam os novos valores.'
+      : 'Alíquotas aplicadas, mas este navegador não permitiu salvar. Elas valem até fechar a página.';
+    statusAjustes.className = 'status';
+  });
+
+  document.getElementById('restaurar-padrao').addEventListener('click', () => {
+    todosCampos.forEach((c) => definir(TABELAS, c.caminho, pegar(PADRAO, c.caminho)));
+    try {
+      localStorage.removeItem(CHAVE_AJUSTES);
+    } catch (_) {
+      /* sem armazenamento: nada a remover */
+    }
+    mostrarAjustes();
+    atualizarFormularios();
+    statusAjustes.textContent = `Alíquotas de ${TABELAS.ano} restauradas.`;
+    statusAjustes.className = 'status';
   });
 
   /** Mostra um grupo de campos ou outro conforme a opção marcada. */
@@ -97,7 +248,8 @@
         ${linha('Total dos 3 impostos', '− ' + brl.format(r.total))}
         ${linha('Sobra após os impostos', brl.format(receita - r.total), 'total')}
       </table>
-      <p class="ajuda nota">O INSS inclui os 11% retidos do pró-labore do sócio. No Lucro Presumido o IRPJ é apurado por trimestre; aqui ele aparece como média mensal. Não estão incluídos CSLL, PIS e COFINS.</p>
+      ${r.iss.aviso ? `<p class="alerta">${r.iss.aviso}</p>` : ''}
+      <p class="ajuda nota">O INSS inclui os ${pct(TABELAS.inss.socioProLabore, 0)} retidos do pró-labore do sócio. No Lucro Presumido o IRPJ é apurado por trimestre; aqui ele aparece como média mensal. Não estão incluídos CSLL, PIS e COFINS.</p>
     `);
   });
 
@@ -121,8 +273,8 @@
         ${regime === 'presumido' ? linha('Receita bruta', brl.format(receita)) : ''}
         ${regime === 'presumido' ? linha('Presunção de lucro', pct(r.presuncao, 1)) : ''}
         ${linha('Base de cálculo (lucro)', brl.format(r.base))}
-        ${linha('IRPJ 15%', brl.format(r.normal))}
-        ${linha(`Adicional 10% acima de ${brl.format(r.limiteAdicional)}`, brl.format(r.adicional))}
+        ${linha(`IRPJ ${pct(TABELAS.irpj.aliquota, 1)}`, brl.format(r.normal))}
+        ${linha(`Adicional ${pct(TABELAS.irpj.adicional, 1)} acima de ${brl.format(r.limiteAdicional)}`, brl.format(r.adicional))}
         ${linha('IRPJ a pagar', brl.format(r.valor), 'total')}
       </table>
       ${meses === 3 ? `<p class="ajuda nota">Pode ser pago em cota única ou em até 3 cotas mensais (mínimo de R$ 1.000 por cota).</p>` : ''}
@@ -160,12 +312,12 @@
     mostrar('res-inss', `
       ${destaque('Total da guia de INSS', brl.format(r.totalGuia), `Custo da empresa: ${pct(r.aliquotaSobreFolha)} sobre folha + pró-labore`)}
       <table>
-        ${linha('Patronal 20% sobre a folha', brl.format(r.patronalFolha))}
+        ${linha(`Patronal ${pct(TABELAS.inss.patronal, 1)} sobre a folha`, brl.format(r.patronalFolha))}
         ${linha(`RAT ajustado (${pct(r.ratAjustado)})`, brl.format(r.ratValor))}
         ${linha('Terceiros', brl.format(r.terceirosValor))}
-        ${linha('Patronal 20% sobre o pró-labore', brl.format(r.patronalProLabore))}
+        ${linha(`Patronal ${pct(TABELAS.inss.patronal, 1)} sobre o pró-labore`, brl.format(r.patronalProLabore))}
         ${linha('Custo da empresa', brl.format(r.custoEmpresa), 'total')}
-        ${linha('11% retido do sócio', brl.format(r.retidoSocio))}
+        ${linha(`${pct(TABELAS.inss.socioProLabore, 1)} retido do sócio`, brl.format(r.retidoSocio))}
         ${linha('Total da guia', brl.format(r.totalGuia), 'total')}
       </table>
       <p class="ajuda nota">O INSS descontado dos empregados também vai na guia; calcule-o na opção “Desconto do empregado”. Empresas do Simples Nacional (exceto Anexo IV) não pagam o patronal à parte.</p>
@@ -182,6 +334,7 @@
     if (r.erro) return erro('res-iss', r.erro);
     mostrar('res-iss', `
       ${destaque('ISS', brl.format(r.valor), r.retido ? 'Retido e pago pelo tomador' : 'A recolher pela sua empresa')}
+      ${r.aviso ? `<p class="alerta">${r.aviso}</p>` : ''}
       <table>
         ${linha('Valor dos serviços', brl.format(receita))}
         ${linha('ISS', brl.format(r.valor))}
@@ -190,4 +343,23 @@
       </table>
     `);
   });
+  // Abre com um exemplo já calculado, para mostrar o que o app faz
+  const formResumo = document.getElementById('form-resumo');
+  if (!formResumo.elements.receita.value) {
+    formResumo.elements.receita.value = '50.000,00';
+    formResumo.elements.folha.value = '10.000,00';
+    formResumo.elements.prolabore.value = '5.000,00';
+    document.getElementById('aviso-exemplo').hidden = false;
+    formResumo.requestSubmit();
+    formResumo.addEventListener('input', () => {
+      document.getElementById('aviso-exemplo').hidden = true;
+    }, { once: true });
+  }
+
+  abrindo = false;
+
+  // Instalação como app (PWA) e uso offline
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
 })();

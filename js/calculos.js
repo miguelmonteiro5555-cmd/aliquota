@@ -91,18 +91,21 @@
     };
   }
 
-  /** ISS sobre a receita de serviços. Se o tomador retiver, a empresa não recolhe esse valor na guia. */
+  /**
+   * ISS sobre a receita de serviços. Se o tomador retiver, a empresa não recolhe esse valor na guia.
+   * Alíquotas fora do intervalo da LC 116/2003 são calculadas, mas geram um aviso.
+   */
   function calcularISS({ receita, aliquota, retido = false }) {
     const I = T.iss;
-    if (aliquota < I.minima - 1e-9 || aliquota > I.maxima + 1e-9) {
-      return { erro: 'A alíquota do ISS deve ficar entre 2% e 5% (LC 116/2003).' };
-    }
+    if (!(aliquota >= 0 && aliquota < 1)) return { erro: 'Informe uma alíquota de ISS entre 0% e 100%.' };
+    const foraDoLimite = aliquota < I.minima - 1e-9 || aliquota > I.maxima + 1e-9;
     const valor = arred(receita * aliquota);
     return {
       valor,
       retido,
       aRecolher: retido ? 0 : valor,
       liquidoRecebido: arred(receita - (retido ? valor : 0)),
+      aviso: foraDoLimite ? 'A LC 116/2003 limita o ISS entre 2% e 5%. Confira a alíquota do seu município.' : null,
     };
   }
 

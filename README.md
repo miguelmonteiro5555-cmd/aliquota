@@ -5,7 +5,10 @@ App web estático (HTML, CSS e JavaScript puro, sem dependências) para calcular
 - **Resumo**: IRPJ + INSS + ISS do mês, com o peso de cada um e a carga total sobre a receita.
 - **IRPJ**: Lucro Presumido (presunção por atividade) ou Lucro Real, por mês ou trimestre, com o adicional de 10% acima de R$ 20.000/mês.
 - **INSS**: contribuição da empresa (20% patronal, RAT × FAP, terceiros, pró-labore e 11% retido do sócio) e desconto progressivo do empregado.
-- **ISS**: imposto municipal de 2% a 5%, com opção de retenção pelo tomador.
+- **ISS**: imposto municipal (normalmente de 2% a 5%), com opção de retenção pelo tomador.
+- **Alíquotas**: todos os percentuais (IRPJ, presunções, INSS, RAT, faixas, ISS) podem ser ajustados no app e ficam salvos no navegador.
+
+O app pode ser instalado no celular ou no computador (PWA) e funciona sem internet depois do primeiro acesso.
 
 ## Como usar
 

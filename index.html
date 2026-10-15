@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Alíquota — IRPJ, INSS e ISS</title>
   <meta name="description" content="Calcule IRPJ, INSS e ISS da sua empresa e veja a carga tributária total sobre a receita.">
+  <meta name="theme-color" content="#0f7b5f">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icone.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icone.svg">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -21,13 +25,15 @@
       <button role="tab" class="aba" data-aba="irpj" aria-selected="false">IRPJ</button>
       <button role="tab" class="aba" data-aba="inss" aria-selected="false">INSS</button>
       <button role="tab" class="aba" data-aba="iss" aria-selected="false">ISS</button>
+      <button role="tab" class="aba" data-aba="ajustes" aria-selected="false">Alíquotas</button>
     </nav>
 
     <!-- Resumo -->
     <section class="painel" id="painel-resumo" role="tabpanel">
       <form class="cartao" id="form-resumo">
         <h2>Os 3 impostos do mês</h2>
-        <p class="ajuda">Estimativa mensal para empresa no Lucro Presumido: IRPJ sobre a receita, INSS sobre folha e pró-labore e ISS sobre os serviços.</p>
+        <p class="ajuda">Estimativa mensal para empresa no Lucro Presumido: IRPJ sobre a receita, INSS sobre folha e pró-labore e ISS sobre os serviços. Ajuste qualquer percentual na aba Alíquotas.</p>
+        <p class="exemplo" id="aviso-exemplo" hidden>Valores de exemplo. Troque pelos números da sua empresa.</p>
         <label>Receita bruta do mês (R$)
           <input type="text" inputmode="decimal" name="receita" placeholder="50.000,00" required>
         </label>
@@ -145,6 +151,20 @@
         <button type="submit">Calcular</button>
       </form>
       <div class="cartao resultado" id="res-iss" hidden></div>
+    </section>
+
+    <!-- Alíquotas ajustáveis -->
+    <section class="painel" id="painel-ajustes" role="tabpanel" hidden>
+      <form class="cartao" id="form-ajustes">
+        <h2>Alíquotas</h2>
+        <p class="ajuda">Mude qualquer percentual usado nos cálculos. As alterações valem em todas as abas e ficam salvas neste navegador.</p>
+        <div id="campos-ajustes"></div>
+        <div class="acoes">
+          <button type="submit">Salvar alíquotas</button>
+          <button type="button" class="secundario" id="restaurar-padrao">Restaurar padrão</button>
+        </div>
+        <p class="status" id="status-ajustes" role="status"></p>
+      </form>
     </section>
 
     <p class="aviso">Resultados estimados para fins informativos. Confirme os valores com um contador ou com a legislação do seu município.</p>

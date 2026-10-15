@@ -54,12 +54,26 @@ test('ISS dentro dos limites e retido', () => {
   perto(r.valor, 500);
   assert.strictEqual(r.aRecolher, 0);
   perto(r.liquidoRecebido, 9500);
-  assert.ok(C.calcularISS({ receita: 1000, aliquota: 0.01 }).erro);
-  assert.ok(C.calcularISS({ receita: 1000, aliquota: 0.06 }).erro);
+  const fora = C.calcularISS({ receita: 1000, aliquota: 0.01 });
+  perto(fora.valor, 10);
+  assert.ok(fora.aviso);
+  assert.strictEqual(r.aviso, null);
+  assert.ok(C.calcularISS({ receita: 1000, aliquota: 1.5 }).erro);
 });
 
 test('Resumo soma os três impostos', () => {
   const r = C.calcularResumo({ receita: 50000, atividade: 'servicos', aliquotaISS: 0.05, folha: 10000, proLabore: 5000, rat: 0.02 });
   perto(r.total, 2400 + 4330 + 2500);
   perto(r.carga, r.total / 50000, 1e-9);
+});
+
+test('Alíquotas ajustadas nas tabelas valem nos cálculos', () => {
+  const T = require('../js/tabelas.js');
+  const original = T.irpj.presuncao.servicos.percentual;
+  T.irpj.presuncao.servicos.percentual = 0.4;
+  try {
+    perto(C.calcularIRPJ({ receita: 10000, atividade: 'servicos' }).base, 4000);
+  } finally {
+    T.irpj.presuncao.servicos.percentual = original;
+  }
 });
