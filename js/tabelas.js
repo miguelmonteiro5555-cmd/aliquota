@@ -14,12 +14,12 @@
       limiteAdicionalMensal: 20000, // R$ 60.000 no trimestre
       // Percentuais de presunção do lucro sobre a receita bruta (Lei 9.249/1995, art. 15)
       presuncao: {
-        servicos: { nome: 'Serviços em geral (consultoria, TI, profissões)', percentual: 0.32 },
-        comercio: { nome: 'Comércio e indústria', percentual: 0.08 },
-        hospitalar: { nome: 'Serviços hospitalares e de saúde (com requisitos)', percentual: 0.08 },
-        cargas: { nome: 'Transporte de cargas', percentual: 0.08 },
-        passageiros: { nome: 'Transporte de passageiros', percentual: 0.16 },
-        combustivel: { nome: 'Revenda de combustíveis', percentual: 0.016 },
+        servicos: { nome: 'Serviços em geral (consultoria, TI, profissões)', curto: 'serviços em geral', percentual: 0.32 },
+        comercio: { nome: 'Comércio e indústria', curto: 'comércio e indústria', percentual: 0.08 },
+        hospitalar: { nome: 'Serviços hospitalares e de saúde (com requisitos)', curto: 'serviços hospitalares', percentual: 0.08 },
+        cargas: { nome: 'Transporte de cargas', curto: 'transporte de cargas', percentual: 0.08 },
+        passageiros: { nome: 'Transporte de passageiros', curto: 'transporte de passageiros', percentual: 0.16 },
+        combustivel: { nome: 'Revenda de combustíveis', curto: 'revenda de combustíveis', percentual: 0.016 },
       },
     },
 

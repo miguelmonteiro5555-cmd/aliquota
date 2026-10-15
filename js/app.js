@@ -128,9 +128,21 @@
       const escolhido = sel.value;
       sel.innerHTML = '';
       Object.entries(TABELAS.irpj.presuncao).forEach(([chave, a]) => {
-        sel.add(new Option(`${a.nome} — presunção ${pct(a.percentual, 1)}`, chave));
+        const ir = a.percentual * TABELAS.irpj.aliquota;
+        sel.add(new Option(`${a.nome} — IR ${pct(ir)} (presunção ${pct(a.percentual, 1)})`, chave));
       });
       if (escolhido) sel.value = escolhido;
+    });
+    // Na compra, a escolha é direta pela alíquota de IR (0,24%, 1,2%, 2,4%, 4,8%)
+    document.querySelectorAll('.sel-ir').forEach((sel) => {
+      const escolhido = sel.value || 'servicos';
+      sel.innerHTML = '';
+      Calculos.aliquotasIR().forEach((o) => {
+        const nomes = o.atividades.join(', ');
+        sel.add(new Option(`${pct(o.aliquota)} — ${nomes.charAt(0).toUpperCase() + nomes.slice(1)}`, o.atividade));
+      });
+      sel.value = escolhido;
+      if (sel.selectedIndex < 0) sel.selectedIndex = sel.options.length - 1;
     });
     document.querySelectorAll('.sel-rat').forEach((sel) => {
       const indice = sel.selectedIndex >= 0 ? sel.selectedIndex : 1;
@@ -349,7 +361,7 @@
       ${r.iss.aviso ? `<p class="alerta">${r.iss.aviso}</p>` : ''}
       <table>
         ${linha('Valor da compra', brl.format(r.valor))}
-        ${linha(`IRPJ — ${pct(TABELAS.irpj.aliquota, 1)} sobre ${pct(r.presuncao, 1)} do valor`, brl.format(r.irpj))}
+        ${linha(`IR — ${pct(r.presuncao * TABELAS.irpj.aliquota)} do valor`, brl.format(r.irpj))}
         ${linha(`ISS${r.iss.retido ? ' (retido)' : ''}`, brl.format(r.iss.valor))}
         ${linha('Total de impostos', brl.format(r.total), 'total')}
         ${r.inss ? linha(`INSS retido — ${pct(TABELAS.inss.retencaoNota, 1)}`, brl.format(r.inss)) : ''}

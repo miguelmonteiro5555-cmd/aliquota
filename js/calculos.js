@@ -41,6 +41,21 @@
     };
   }
 
+  /**
+   * Alíquotas efetivas de IR sobre o valor (15% × presunção), agrupando as
+   * atividades que dão o mesmo percentual. Com os valores padrão:
+   * 0,24%, 1,2%, 2,4% e 4,8%.
+   */
+  function aliquotasIR() {
+    const grupos = new Map();
+    for (const [chave, a] of Object.entries(T.irpj.presuncao)) {
+      const aliquota = Math.round(a.percentual * T.irpj.aliquota * 1e8) / 1e8;
+      if (!grupos.has(aliquota)) grupos.set(aliquota, { aliquota, atividade: chave, atividades: [] });
+      grupos.get(aliquota).atividades.push(a.curto || a.nome);
+    }
+    return [...grupos.values()].sort((a, b) => a.aliquota - b.aliquota);
+  }
+
   /** INSS progressivo de um trabalhador: cada faixa incide só sobre a parte do salário nela. */
   function calcularINSSEmpregado(salario) {
     let anterior = 0;
@@ -179,6 +194,7 @@
 
   const API = {
     calcularIRPJ,
+    aliquotasIR,
     calcularINSSEmpregado,
     calcularINSSEmpresa,
     calcularISS,

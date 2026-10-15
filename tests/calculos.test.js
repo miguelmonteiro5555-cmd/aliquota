@@ -106,3 +106,12 @@ test('Soma de várias compras', () => {
   perto(s.total, a.total + b.total);
   perto(s.iss, 60);
 });
+
+test('Opções de alíquota de IR por compra', () => {
+  const opcoes = C.aliquotasIR();
+  assert.deepStrictEqual(opcoes.map((o) => o.aliquota), [0.0024, 0.012, 0.024, 0.048]);
+  for (const o of opcoes) {
+    const r = C.calcularPorCompra({ valor: 1000, atividade: o.atividade, aliquotaISS: 0.05 });
+    perto(r.irpj, 1000 * o.aliquota);
+  }
+});

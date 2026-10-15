@@ -1,5 +1,5 @@
 // Guarda os arquivos do app para funcionar sem internet.
-const CACHE = 'aliquota-v2';
+const CACHE = 'aliquota-v3';
 const ARQUIVOS = [
   './',
   'index.html',
