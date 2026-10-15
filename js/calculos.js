@@ -128,12 +128,63 @@
     return { irpj, inss, iss, itens, total, carga: receita > 0 ? total / receita : 0 };
   }
 
+  /**
+   * Impostos de uma única compra, separada do mês. O IRPJ usa só os 15%
+   * sobre o lucro presumido da compra: o adicional depende do lucro do mês
+   * inteiro e não dá para atribuir a uma compra isolada. O INSS retido na
+   * nota é só um adiantamento, descontado depois da guia de INSS da empresa,
+   * por isso reduz o valor recebido mas não entra no total de impostos.
+   */
+  function calcularPorCompra({ valor, atividade, aliquotaISS, issRetido = false, inssRetido = false }) {
+    if (!(valor > 0)) return { erro: 'Informe o valor da compra.' };
+    const iss = calcularISS({ receita: valor, aliquota: aliquotaISS, retido: issRetido });
+    if (iss.erro) return iss;
+    const presuncao = T.irpj.presuncao[atividade].percentual;
+    const baseIRPJ = arred(valor * presuncao);
+    const irpj = arred(baseIRPJ * T.irpj.aliquota);
+    const inss = inssRetido ? arred(valor * T.inss.retencaoNota) : 0;
+    const total = arred(irpj + iss.valor);
+    const retidoPeloCliente = arred((issRetido ? iss.valor : 0) + inss);
+    return {
+      valor,
+      presuncao,
+      baseIRPJ,
+      irpj,
+      iss,
+      inss,
+      total,
+      carga: total / valor,
+      retidoPeloCliente,
+      recebido: arred(valor - retidoPeloCliente),
+      sobra: arred(valor - total),
+    };
+  }
+
+  /** Soma uma lista de compras já calculadas. */
+  function somarCompras(compras) {
+    const soma = (campo) => arred(compras.reduce((s, c) => s + c[campo], 0));
+    const valor = soma('valor');
+    const total = soma('total');
+    return {
+      quantidade: compras.length,
+      valor,
+      irpj: soma('irpj'),
+      iss: arred(compras.reduce((s, c) => s + c.iss.valor, 0)),
+      inss: soma('inss'),
+      total,
+      sobra: soma('sobra'),
+      carga: valor > 0 ? total / valor : 0,
+    };
+  }
+
   const API = {
     calcularIRPJ,
     calcularINSSEmpregado,
     calcularINSSEmpresa,
     calcularISS,
     calcularResumo,
+    calcularPorCompra,
+    somarCompras,
   };
 
   if (typeof module !== 'undefined' && module.exports) {

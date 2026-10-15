@@ -71,6 +71,7 @@
         { rotulo: 'Patronal (folha e pró-labore)', caminho: ['inss', 'patronal'], tipo: 'pct' },
         { rotulo: 'Terceiros (padrão)', caminho: ['inss', 'terceirosPadrao'], tipo: 'pct' },
         { rotulo: 'Retido do sócio no pró-labore', caminho: ['inss', 'socioProLabore'], tipo: 'pct' },
+        { rotulo: 'Retido na nota (cessão de mão de obra)', caminho: ['inss', 'retencaoNota'], tipo: 'pct' },
         ...TABELAS.inss.ratOpcoes.map((_, i) => ({
           rotulo: `RAT — risco ${['leve', 'médio', 'grave'][i]}`,
           caminho: ['inss', 'ratOpcoes', i],
@@ -140,6 +141,10 @@
     const issPadrao = formatarAjuste({ tipo: 'pct' }, TABELAS.iss.padrao);
     document.querySelector('#form-resumo [name=iss]').value = issPadrao;
     document.querySelector('#form-iss [name=aliquota]').value = issPadrao;
+    document.querySelector('#form-compra [name=iss]').value = issPadrao;
+    document.querySelectorAll('.taxa-retencao').forEach((el) => {
+      el.textContent = pct(TABELAS.inss.retencaoNota, 0);
+    });
     document.querySelector('#form-inss [name=terceiros]').value = formatarAjuste({ tipo: 'pct' }, TABELAS.inss.terceirosPadrao);
   }
 
@@ -252,6 +257,123 @@
       <p class="ajuda nota">O INSS inclui os ${pct(TABELAS.inss.socioProLabore, 0)} retidos do pró-labore do sócio. No Lucro Presumido o IRPJ é apurado por trimestre; aqui ele aparece como média mensal. Não estão incluídos CSLL, PIS e COFINS.</p>
     `);
   });
+
+  // Por compra: cada compra é calculada sozinha e pode ir para uma lista
+  const CHAVE_COMPRAS = 'aliquota:compras';
+  const escapar = (t) =>
+    String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  let compras = [];
+  try {
+    compras = JSON.parse(localStorage.getItem(CHAVE_COMPRAS) || '[]');
+    if (!Array.isArray(compras)) compras = [];
+  } catch (_) {
+    compras = [];
+  }
+  let ultimaCompra = null;
+
+  function salvarCompras() {
+    try {
+      localStorage.setItem(CHAVE_COMPRAS, JSON.stringify(compras));
+    } catch (_) {
+      /* sem armazenamento: a lista vale até fechar a página */
+    }
+  }
+
+  function desenharCompras() {
+    const el = document.getElementById('lista-compras');
+    if (!compras.length) {
+      el.innerHTML = '<p class="ajuda vazio">Nenhuma compra lançada. Calcule uma compra acima e toque em “Adicionar à lista” para somar várias.</p>';
+      return;
+    }
+    const s = Calculos.somarCompras(compras);
+    el.innerHTML = `
+      <div class="tabela-rolagem">
+        <table class="tabela-compras">
+          <thead><tr><th>Compra</th><th>Valor</th><th>Impostos</th><th></th></tr></thead>
+          <tbody>
+            ${compras
+              .map(
+                (c, i) => `<tr>
+                  <td>${escapar(c.descricao || 'Compra ' + (i + 1))}</td>
+                  <td>${brl.format(c.valor)}</td>
+                  <td>${brl.format(c.total)}</td>
+                  <td><button type="button" class="remover" data-indice="${i}" aria-label="Remover ${escapar(c.descricao || 'compra ' + (i + 1))}">✕</button></td>
+                </tr>`
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+      <table>
+        ${linha(`${s.quantidade} compra${s.quantidade > 1 ? 's' : ''}`, brl.format(s.valor))}
+        ${linha('IRPJ', brl.format(s.irpj))}
+        ${linha('ISS', brl.format(s.iss))}
+        ${linha(`Total de impostos — ${pct(s.carga)}`, brl.format(s.total), 'total')}
+        ${linha('Sobra após os impostos', brl.format(s.sobra), 'total')}
+        ${s.inss ? linha('INSS retido nas notas (a descontar da guia)', brl.format(s.inss)) : ''}
+      </table>
+      <button type="button" class="secundario largo" id="limpar-compras">Limpar lista</button>
+    `;
+  }
+
+  document.getElementById('lista-compras').addEventListener('click', (e) => {
+    const remover = e.target.closest('.remover');
+    if (remover) {
+      compras.splice(Number(remover.dataset.indice), 1);
+    } else if (e.target.id === 'limpar-compras') {
+      compras = [];
+    } else {
+      return;
+    }
+    salvarCompras();
+    desenharCompras();
+  });
+
+  document.getElementById('form-compra').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = e.target.elements;
+    const r = Calculos.calcularPorCompra({
+      valor: numero(f.valor.value),
+      atividade: f.atividade.value,
+      aliquotaISS: numero(f.iss.value) / 100,
+      issRetido: f.issRetido.checked,
+      inssRetido: f.inssRetido.checked,
+    });
+    if (r.erro) return erro('res-compra', r.erro);
+    ultimaCompra = { ...r, descricao: f.descricao.value.trim() };
+    const retencoes = r.retidoPeloCliente
+      ? `${linha('Retido pelo cliente', '− ' + brl.format(r.retidoPeloCliente))}${linha('Você recebe', brl.format(r.recebido), 'total')}`
+      : '';
+    mostrar('res-compra', `
+      ${destaque('Impostos desta compra', brl.format(r.total), `${pct(r.carga)} do valor · sobra ${brl.format(r.sobra)}`)}
+      ${r.iss.aviso ? `<p class="alerta">${r.iss.aviso}</p>` : ''}
+      <table>
+        ${linha('Valor da compra', brl.format(r.valor))}
+        ${linha(`IRPJ — ${pct(TABELAS.irpj.aliquota, 1)} sobre ${pct(r.presuncao, 1)} do valor`, brl.format(r.irpj))}
+        ${linha(`ISS${r.iss.retido ? ' (retido)' : ''}`, brl.format(r.iss.valor))}
+        ${linha('Total de impostos', brl.format(r.total), 'total')}
+        ${r.inss ? linha(`INSS retido — ${pct(TABELAS.inss.retencaoNota, 1)}`, brl.format(r.inss)) : ''}
+        ${retencoes}
+      </table>
+      <p class="ajuda nota">O adicional de 10% do IRPJ depende do lucro do mês inteiro, por isso não entra no cálculo de uma compra. ${r.inss ? 'O INSS retido pode ser descontado da guia de INSS da empresa.' : ''}</p>
+      <button type="button" class="secundario largo" id="adicionar-compra">Adicionar à lista</button>
+    `);
+  });
+
+  document.getElementById('res-compra').addEventListener('click', (e) => {
+    if (e.target.id !== 'adicionar-compra' || !ultimaCompra) return;
+    compras.push(ultimaCompra);
+    ultimaCompra = null;
+    salvarCompras();
+    desenharCompras();
+    e.target.disabled = true;
+    e.target.textContent = 'Adicionada à lista';
+    const form = document.getElementById('form-compra');
+    form.elements.descricao.value = '';
+    form.elements.valor.value = '';
+  });
+
+  desenharCompras();
 
   // IRPJ
   const formIRPJ = document.getElementById('form-irpj');

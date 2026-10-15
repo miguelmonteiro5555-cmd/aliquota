@@ -22,6 +22,7 @@
   <main class="container">
     <nav class="abas" role="tablist">
       <button role="tab" class="aba ativa" data-aba="resumo" aria-selected="true">Resumo</button>
+      <button role="tab" class="aba" data-aba="compra" aria-selected="false">Por compra</button>
       <button role="tab" class="aba" data-aba="irpj" aria-selected="false">IRPJ</button>
       <button role="tab" class="aba" data-aba="inss" aria-selected="false">INSS</button>
       <button role="tab" class="aba" data-aba="iss" aria-selected="false">ISS</button>
@@ -59,6 +60,36 @@
         <button type="submit">Calcular</button>
       </form>
       <div class="cartao resultado" id="res-resumo" hidden></div>
+    </section>
+
+    <!-- Por compra -->
+    <section class="painel" id="painel-compra" role="tabpanel" hidden>
+      <form class="cartao" id="form-compra">
+        <h2>Impostos por compra</h2>
+        <p class="ajuda">Calcule IRPJ, ISS e INSS de uma compra só, separada do mês. Use o valor que o cliente pagou na nota.</p>
+        <label for="compra-descricao">Descrição (opcional)
+          <input type="text" id="compra-descricao" name="descricao" placeholder="Ex.: Consultoria — Cliente A" maxlength="60">
+        </label>
+        <div class="linha">
+          <label for="compra-valor">Valor da compra (R$)
+            <input type="text" inputmode="decimal" id="compra-valor" name="valor" placeholder="1.000,00" required>
+          </label>
+          <label for="compra-iss">Alíquota do ISS (%)
+            <input type="text" inputmode="decimal" id="compra-iss" name="iss" value="5">
+          </label>
+        </div>
+        <label for="compra-atividade">Atividade
+          <select id="compra-atividade" name="atividade" class="sel-atividade"></select>
+        </label>
+        <label class="check"><input type="checkbox" id="compra-iss-retido" name="issRetido"> <span>ISS retido pelo cliente</span></label>
+        <label class="check"><input type="checkbox" id="compra-inss-retido" name="inssRetido"> <span>INSS retido na nota (<span class="taxa-retencao">11%</span> — cessão de mão de obra ou empreitada)</span></label>
+        <button type="submit">Calcular compra</button>
+      </form>
+      <div class="cartao resultado" id="res-compra" hidden></div>
+      <div class="cartao" id="lista-compras-cartao">
+        <h2>Compras lançadas</h2>
+        <div id="lista-compras"></div>
+      </div>
     </section>
 
     <!-- IRPJ -->

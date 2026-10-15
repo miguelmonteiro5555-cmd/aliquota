@@ -37,6 +37,7 @@
       ratOpcoes: [0.01, 0.02, 0.03], // risco leve, médio, grave
       terceirosPadrao: 0.058, // Sistema S, salário-educação, INCRA (varia pelo FPAS)
       socioProLabore: 0.11, // retido do sócio, limitado ao teto
+      retencaoNota: 0.11, // retido pelo cliente na nota de cessão de mão de obra/empreitada
     },
 
     // ISS — LC 116/2003: cada município define a alíquota entre 2% e 5%

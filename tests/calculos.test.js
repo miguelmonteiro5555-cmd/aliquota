@@ -77,3 +77,32 @@ test('Alíquotas ajustadas nas tabelas valem nos cálculos', () => {
     T.irpj.presuncao.servicos.percentual = original;
   }
 });
+
+test('Impostos de uma compra', () => {
+  const r = C.calcularPorCompra({ valor: 1000, atividade: 'servicos', aliquotaISS: 0.05 });
+  perto(r.irpj, 48); // 1000 × 32% × 15%
+  perto(r.iss.valor, 50);
+  assert.strictEqual(r.inss, 0);
+  perto(r.total, 98);
+  perto(r.recebido, 1000);
+  perto(r.sobra, 902);
+});
+
+test('Compra com ISS e INSS retidos pelo cliente', () => {
+  const r = C.calcularPorCompra({ valor: 1000, atividade: 'servicos', aliquotaISS: 0.05, issRetido: true, inssRetido: true });
+  perto(r.inss, 110);
+  perto(r.retidoPeloCliente, 160);
+  perto(r.recebido, 840);
+  perto(r.total, 98); // o INSS retido é adiantamento, não custo
+  assert.ok(C.calcularPorCompra({ valor: 0, atividade: 'servicos', aliquotaISS: 0.05 }).erro);
+});
+
+test('Soma de várias compras', () => {
+  const a = C.calcularPorCompra({ valor: 1000, atividade: 'servicos', aliquotaISS: 0.05 });
+  const b = C.calcularPorCompra({ valor: 500, atividade: 'comercio', aliquotaISS: 0.02 });
+  const s = C.somarCompras([a, b]);
+  assert.strictEqual(s.quantidade, 2);
+  perto(s.valor, 1500);
+  perto(s.total, a.total + b.total);
+  perto(s.iss, 60);
+});

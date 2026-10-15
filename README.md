@@ -3,6 +3,7 @@
 App web estático (HTML, CSS e JavaScript puro, sem dependências) para calcular os três principais impostos de uma empresa de serviços:
 
 - **Resumo**: IRPJ + INSS + ISS do mês, com o peso de cada um e a carga total sobre a receita.
+- **Por compra**: impostos de uma compra isolada, separada do mês (IRPJ, ISS e retenções de ISS/INSS do cliente), com uma lista para lançar várias compras e ver o total.
 - **IRPJ**: Lucro Presumido (presunção por atividade) ou Lucro Real, por mês ou trimestre, com o adicional de 10% acima de R$ 20.000/mês.
 - **INSS**: contribuição da empresa (20% patronal, RAT × FAP, terceiros, pró-labore e 11% retido do sócio) e desconto progressivo do empregado.
 - **ISS**: imposto municipal (normalmente de 2% a 5%), com opção de retenção pelo tomador.
