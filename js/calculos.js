@@ -1,5 +1,5 @@
 /*
- * Funções de cálculo puras (sem acesso ao DOM), testáveis com Node.
+ * Funções de cálculo puras (sem acesso à página), testáveis com Node.
  */
 (function (global) {
   const T =
@@ -9,8 +9,40 @@
 
   const arred = (v) => Math.round((v + Number.EPSILON) * 100) / 100;
 
-  /** INSS progressivo do empregado: cada faixa incide só sobre a parcela do salário nela. */
-  function calcularINSS(salario) {
+  /**
+   * IRPJ: 15% sobre o lucro + 10% de adicional sobre o que passar de
+   * R$ 20.000 por mês do período. No Lucro Presumido o lucro é um
+   * percentual da receita; no Lucro Real é o lucro apurado.
+   */
+  function calcularIRPJ({ regime = 'presumido', receita = 0, atividade = 'servicos', lucro = 0, meses = 1 }) {
+    const I = T.irpj;
+    let base;
+    let presuncao = null;
+    if (regime === 'presumido') {
+      presuncao = I.presuncao[atividade].percentual;
+      base = receita * presuncao;
+    } else {
+      base = lucro;
+    }
+    base = Math.max(0, arred(base));
+    const limiteAdicional = I.limiteAdicionalMensal * meses;
+    const normal = arred(base * I.aliquota);
+    const adicional = arred(Math.max(0, base - limiteAdicional) * I.adicional);
+    const valor = arred(normal + adicional);
+    return {
+      regime,
+      presuncao,
+      base,
+      normal,
+      limiteAdicional,
+      adicional,
+      valor,
+      aliquotaSobreReceita: receita > 0 ? valor / receita : null,
+    };
+  }
+
+  /** INSS progressivo de um trabalhador: cada faixa incide só sobre a parte do salário nela. */
+  function calcularINSSEmpregado(salario) {
     let anterior = 0;
     let total = 0;
     const detalhes = [];
@@ -18,7 +50,7 @@
       if (salario <= anterior) break;
       const base = Math.min(salario, f.ate) - anterior;
       const valor = base * f.aliquota;
-      detalhes.push({ de: anterior, ate: f.ate, base: arred(base), aliquota: f.aliquota, valor: arred(valor) });
+      detalhes.push({ base: arred(base), aliquota: f.aliquota, valor: arred(valor) });
       total += valor;
       anterior = f.ate;
     }
@@ -31,113 +63,74 @@
     };
   }
 
-  function impostoPelaTabela(base) {
-    const faixa = T.irrf.faixas.find((f) => base <= f.ate);
-    return { faixa, valor: Math.max(0, arred(base * faixa.aliquota - faixa.deducao)) };
-  }
-
-  /** Redução mensal do IR prevista na Lei 15.270/2025, calculada sobre os rendimentos tributáveis. */
-  function reducaoIR(rendimentos, imposto) {
-    const r = T.irrf.reducao;
-    let reducao = 0;
-    if (rendimentos <= r.isencaoAte) reducao = r.valorMaximo;
-    else if (rendimentos <= r.faixaParcialAte) reducao = r.constante - r.fator * rendimentos;
-    return arred(Math.min(Math.max(reducao, 0), imposto));
-  }
-
   /**
-   * IRRF mensal sobre salário. Escolhe automaticamente entre deduções legais
-   * e desconto simplificado, o que for mais vantajoso.
+   * INSS a cargo da empresa (Lucro Presumido/Real):
+   * - folha de empregados: 20% patronal + RAT × FAP + terceiros
+   * - pró-labore: 20% patronal da empresa + 11% retido do sócio (até o teto)
    */
-  function calcularIRRF({ bruto, inss, dependentes = 0, pensao = 0, aplicarReducao = true }) {
-    const deducoesLegais = inss + dependentes * T.irrf.deducaoPorDependente + pensao;
-    const usaSimplificado = T.irrf.descontoSimplificado > deducoesLegais;
-    const deducao = usaSimplificado ? T.irrf.descontoSimplificado : deducoesLegais;
-    const base = Math.max(0, arred(bruto - deducao));
-    const { faixa, valor: impostoTabela } = impostoPelaTabela(base);
-    const reducao = aplicarReducao ? reducaoIR(bruto, impostoTabela) : 0;
-    const valor = arred(impostoTabela - reducao);
+  function calcularINSSEmpresa({ folha = 0, proLabore = 0, rat = 0.02, fap = 1, terceiros = T.inss.terceirosPadrao }) {
+    const I = T.inss;
+    const teto = I.faixas[I.faixas.length - 1].ate;
+    const patronalFolha = arred(folha * I.patronal);
+    const ratAjustado = rat * fap;
+    const ratValor = arred(folha * ratAjustado);
+    const terceirosValor = arred(folha * terceiros);
+    const patronalProLabore = arred(proLabore * I.patronal);
+    const retidoSocio = arred(Math.min(proLabore, teto) * I.socioProLabore);
+    const custoEmpresa = arred(patronalFolha + ratValor + terceirosValor + patronalProLabore);
     return {
-      base,
-      deducao: arred(deducao),
-      usaSimplificado,
-      aliquotaNominal: faixa.aliquota,
-      impostoTabela,
-      reducao,
+      patronalFolha,
+      ratAjustado,
+      ratValor,
+      terceirosValor,
+      patronalProLabore,
+      custoEmpresa,
+      retidoSocio,
+      totalGuia: arred(custoEmpresa + retidoSocio),
+      aliquotaSobreFolha: folha + proLabore > 0 ? custoEmpresa / (folha + proLabore) : 0,
+    };
+  }
+
+  /** ISS sobre a receita de serviços. Se o tomador retiver, a empresa não recolhe esse valor na guia. */
+  function calcularISS({ receita, aliquota, retido = false }) {
+    const I = T.iss;
+    if (aliquota < I.minima - 1e-9 || aliquota > I.maxima + 1e-9) {
+      return { erro: 'A alíquota do ISS deve ficar entre 2% e 5% (LC 116/2003).' };
+    }
+    const valor = arred(receita * aliquota);
+    return {
       valor,
-      aliquotaEfetiva: bruto > 0 ? valor / bruto : 0,
+      retido,
+      aRecolher: retido ? 0 : valor,
+      liquidoRecebido: arred(receita - (retido ? valor : 0)),
     };
   }
 
-  function calcularSalarioLiquido({ bruto, dependentes = 0, pensao = 0, outros = 0 }) {
-    const inss = calcularINSS(bruto);
-    const irrf = calcularIRRF({ bruto, inss: inss.valor, dependentes, pensao });
-    const descontos = arred(inss.valor + irrf.valor + pensao + outros);
-    return {
-      bruto,
-      inss,
-      irrf,
-      pensao,
-      outros,
-      descontos,
-      liquido: arred(bruto - descontos),
-      cargaTributaria: bruto > 0 ? (inss.valor + irrf.valor) / bruto : 0,
-    };
-  }
-
-  /** Simples Nacional: alíquota efetiva = (RBT12 × alíquota nominal − parcela a deduzir) / RBT12. */
-  function calcularSimples({ rbt12, faturamentoMes, anexo, folha12 = null }) {
-    const S = T.simples;
-    let anexoUsado = anexo;
-    let fatorR = null;
-    if (anexo === 'V' && folha12 !== null && rbt12 > 0) {
-      fatorR = folha12 / rbt12;
-      if (fatorR >= S.fatorRMinimo) anexoUsado = 'III';
-    }
-    if (rbt12 > S.limitesFaixa[S.limitesFaixa.length - 1]) {
-      return { erro: 'Receita acima do limite do Simples Nacional (R$ 4,8 milhões).' };
-    }
-    const indice = S.limitesFaixa.findIndex((lim) => rbt12 <= lim);
-    const [nominal, parcela] = S.anexos[anexoUsado].faixas[indice];
-    const efetiva = rbt12 > 0 ? (rbt12 * nominal - parcela) / rbt12 : nominal;
-    return {
-      anexo: anexoUsado,
-      nomeAnexo: S.anexos[anexoUsado].nome,
-      fatorR,
-      faixa: indice + 1,
-      aliquotaNominal: nominal,
-      parcelaDeduzir: parcela,
-      aliquotaEfetiva: efetiva,
-      das: arred(faturamentoMes * efetiva),
-    };
-  }
-
-  /** Converte entre valor sem e com imposto, para imposto "por fora" ou "por dentro". */
-  function calcularPorDentroPorFora({ valor, aliquota, modo }) {
-    if (modo === 'fora') {
-      const imposto = arred(valor * aliquota);
-      return { semImposto: valor, imposto, comImposto: arred(valor + imposto), aliquotaSobreTotal: aliquota / (1 + aliquota) };
-    }
-    // por dentro: o imposto faz parte da própria base (preço final)
-    if (aliquota >= 1) return { erro: 'A alíquota por dentro deve ser menor que 100%.' };
-    const comImposto = arred(valor / (1 - aliquota));
-    const imposto = arred(comImposto - valor);
-    return { semImposto: valor, imposto, comImposto, aliquotaSobreBase: aliquota / (1 - aliquota) };
-  }
-
-  /** Descobre a alíquota efetiva a partir do imposto pago. */
-  function calcularAliquotaEfetiva({ base, imposto }) {
-    if (base <= 0) return { erro: 'Informe uma base maior que zero.' };
-    return { aliquota: imposto / base, liquido: arred(base - imposto) };
+  /** Soma os três impostos de um mês e mostra a carga sobre a receita. */
+  function calcularResumo({ receita, atividade, aliquotaISS, folha, proLabore, rat }) {
+    const irpj = calcularIRPJ({ regime: 'presumido', receita, atividade, meses: 1 });
+    const inss = calcularINSSEmpresa({ folha, proLabore, rat });
+    const iss = calcularISS({ receita, aliquota: aliquotaISS });
+    if (iss.erro) return iss;
+    const itens = [
+      { nome: 'IRPJ', valor: irpj.valor },
+      { nome: 'INSS', valor: inss.totalGuia },
+      { nome: 'ISS', valor: iss.valor },
+    ];
+    const total = arred(itens.reduce((s, i) => s + i.valor, 0));
+    itens.forEach((i) => {
+      i.sobreReceita = receita > 0 ? i.valor / receita : 0;
+      i.participacao = total > 0 ? i.valor / total : 0;
+    });
+    return { irpj, inss, iss, itens, total, carga: receita > 0 ? total / receita : 0 };
   }
 
   const API = {
-    calcularINSS,
-    calcularIRRF,
-    calcularSalarioLiquido,
-    calcularSimples,
-    calcularPorDentroPorFora,
-    calcularAliquotaEfetiva,
+    calcularIRPJ,
+    calcularINSSEmpregado,
+    calcularINSSEmpresa,
+    calcularISS,
+    calcularResumo,
   };
 
   if (typeof module !== 'undefined' && module.exports) {

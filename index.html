@@ -3,110 +3,151 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Alíquota — Calculadora de Impostos</title>
-  <meta name="description" content="Calcule salário líquido (INSS e IRRF), DAS do Simples Nacional, imposto por dentro e por fora e alíquota efetiva.">
+  <title>Alíquota — IRPJ, INSS e ISS</title>
+  <meta name="description" content="Calcule IRPJ, INSS e ISS da sua empresa e veja a carga tributária total sobre a receita.">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header class="topo">
     <div class="container">
       <h1>Alíquota</h1>
-      <p>Calculadora de impostos e alíquotas — tabelas de <span id="ano-tabelas">2026</span></p>
+      <p>IRPJ, INSS e ISS da sua empresa — tabelas de <span id="ano-tabelas">2026</span></p>
     </div>
   </header>
 
   <main class="container">
     <nav class="abas" role="tablist">
-      <button role="tab" class="aba ativa" data-aba="salario" aria-selected="true">Salário líquido</button>
-      <button role="tab" class="aba" data-aba="simples" aria-selected="false">Simples Nacional</button>
-      <button role="tab" class="aba" data-aba="dentrofora" aria-selected="false">Por dentro / por fora</button>
-      <button role="tab" class="aba" data-aba="efetiva" aria-selected="false">Alíquota efetiva</button>
+      <button role="tab" class="aba ativa" data-aba="resumo" aria-selected="true">Resumo</button>
+      <button role="tab" class="aba" data-aba="irpj" aria-selected="false">IRPJ</button>
+      <button role="tab" class="aba" data-aba="inss" aria-selected="false">INSS</button>
+      <button role="tab" class="aba" data-aba="iss" aria-selected="false">ISS</button>
     </nav>
 
-    <!-- Salário líquido -->
-    <section class="painel ativo" id="painel-salario" role="tabpanel">
-      <form class="cartao" id="form-salario">
-        <h2>Salário líquido (CLT)</h2>
-        <p class="ajuda">Calcula INSS e Imposto de Renda retido na fonte, já com a isenção até R$ 5.000 em vigor desde 2026.</p>
-        <label>Salário bruto (R$)
-          <input type="text" inputmode="decimal" name="bruto" placeholder="5.000,00" required>
+    <!-- Resumo -->
+    <section class="painel" id="painel-resumo" role="tabpanel">
+      <form class="cartao" id="form-resumo">
+        <h2>Os 3 impostos do mês</h2>
+        <p class="ajuda">Estimativa mensal para empresa no Lucro Presumido: IRPJ sobre a receita, INSS sobre folha e pró-labore e ISS sobre os serviços.</p>
+        <label>Receita bruta do mês (R$)
+          <input type="text" inputmode="decimal" name="receita" placeholder="50.000,00" required>
+        </label>
+        <label>Atividade
+          <select name="atividade" class="sel-atividade"></select>
         </label>
         <div class="linha">
-          <label>Dependentes
-            <input type="number" name="dependentes" min="0" step="1" value="0">
+          <label>Folha de salários (R$)
+            <input type="text" inputmode="decimal" name="folha" placeholder="10.000,00">
           </label>
-          <label>Pensão alimentícia (R$)
-            <input type="text" inputmode="decimal" name="pensao" placeholder="0,00">
+          <label>Pró-labore dos sócios (R$)
+            <input type="text" inputmode="decimal" name="prolabore" placeholder="5.000,00">
           </label>
         </div>
-        <label>Outros descontos (R$)
-          <input type="text" inputmode="decimal" name="outros" placeholder="Plano de saúde, VT…">
-        </label>
+        <div class="linha">
+          <label>Alíquota do ISS (%)
+            <input type="text" inputmode="decimal" name="iss" value="5">
+          </label>
+          <label>RAT (grau de risco)
+            <select name="rat" class="sel-rat"></select>
+          </label>
+        </div>
         <button type="submit">Calcular</button>
       </form>
-      <div class="cartao resultado" id="res-salario" hidden></div>
+      <div class="cartao resultado" id="res-resumo" hidden></div>
     </section>
 
-    <!-- Simples Nacional -->
-    <section class="painel" id="painel-simples" role="tabpanel" hidden>
-      <form class="cartao" id="form-simples">
-        <h2>DAS do Simples Nacional</h2>
-        <p class="ajuda">A alíquota efetiva depende da receita bruta dos últimos 12 meses (RBT12) e do anexo da atividade.</p>
-        <label>Anexo da atividade
-          <select name="anexo" id="sel-anexo"></select>
-        </label>
-        <label>Receita bruta dos últimos 12 meses — RBT12 (R$)
-          <input type="text" inputmode="decimal" name="rbt12" placeholder="300.000,00" required>
-        </label>
-        <label>Faturamento do mês (R$)
-          <input type="text" inputmode="decimal" name="mes" placeholder="25.000,00" required>
-        </label>
-        <label id="campo-folha" hidden>Folha de salários dos últimos 12 meses (R$) — Fator R
-          <input type="text" inputmode="decimal" name="folha" placeholder="Inclua pró-labore e encargos">
-        </label>
-        <button type="submit">Calcular</button>
-      </form>
-      <div class="cartao resultado" id="res-simples" hidden></div>
-    </section>
-
-    <!-- Por dentro / por fora -->
-    <section class="painel" id="painel-dentrofora" role="tabpanel" hidden>
-      <form class="cartao" id="form-dentrofora">
-        <h2>Imposto por dentro ou por fora</h2>
-        <p class="ajuda"><strong>Por fora</strong>: o imposto é somado ao valor (ex.: IPI). <strong>Por dentro</strong>: o imposto faz parte do próprio preço (ex.: ICMS, ISS, PIS/COFINS).</p>
-        <label>Valor sem imposto (R$)
-          <input type="text" inputmode="decimal" name="valor" placeholder="100,00" required>
-        </label>
-        <label>Alíquota (%)
-          <input type="text" inputmode="decimal" name="aliquota" placeholder="18" required>
-        </label>
+    <!-- IRPJ -->
+    <section class="painel" id="painel-irpj" role="tabpanel" hidden>
+      <form class="cartao" id="form-irpj">
+        <h2>IRPJ — Imposto de Renda da Pessoa Jurídica</h2>
+        <p class="ajuda">15% sobre o lucro, mais 10% de adicional sobre o que passar de R$ 20.000 por mês (R$ 60.000 no trimestre).</p>
         <fieldset class="opcoes">
-          <legend>Forma de cálculo</legend>
-          <label class="radio"><input type="radio" name="modo" value="dentro" checked> Por dentro</label>
-          <label class="radio"><input type="radio" name="modo" value="fora"> Por fora</label>
+          <legend>Regime de tributação</legend>
+          <label class="radio"><input type="radio" name="regime" value="presumido" checked> Lucro Presumido</label>
+          <label class="radio"><input type="radio" name="regime" value="real"> Lucro Real</label>
         </fieldset>
+        <fieldset class="opcoes">
+          <legend>Período</legend>
+          <label class="radio"><input type="radio" name="meses" value="3" checked> Trimestre</label>
+          <label class="radio"><input type="radio" name="meses" value="1"> Mês</label>
+        </fieldset>
+        <div id="campos-presumido">
+          <label>Receita bruta do período (R$)
+            <input type="text" inputmode="decimal" name="receita" placeholder="150.000,00">
+          </label>
+          <label>Atividade
+            <select name="atividade" class="sel-atividade"></select>
+          </label>
+        </div>
+        <div id="campos-real" hidden>
+          <label>Lucro real do período (R$)
+            <input type="text" inputmode="decimal" name="lucro" placeholder="Lucro contábil ajustado">
+          </label>
+        </div>
         <button type="submit">Calcular</button>
       </form>
-      <div class="cartao resultado" id="res-dentrofora" hidden></div>
+      <div class="cartao resultado" id="res-irpj" hidden></div>
     </section>
 
-    <!-- Alíquota efetiva -->
-    <section class="painel" id="painel-efetiva" role="tabpanel" hidden>
-      <form class="cartao" id="form-efetiva">
-        <h2>Descubra a alíquota efetiva</h2>
-        <p class="ajuda">Informe o valor bruto e o total de imposto pago para saber quanto ele representa de fato.</p>
-        <label>Valor bruto (R$)
-          <input type="text" inputmode="decimal" name="base" placeholder="10.000,00" required>
-        </label>
-        <label>Imposto pago (R$)
-          <input type="text" inputmode="decimal" name="imposto" placeholder="1.500,00" required>
-        </label>
+    <!-- INSS -->
+    <section class="painel" id="painel-inss" role="tabpanel" hidden>
+      <form class="cartao" id="form-inss">
+        <h2>INSS</h2>
+        <fieldset class="opcoes">
+          <legend>O que calcular</legend>
+          <label class="radio"><input type="radio" name="tipo" value="empresa" checked> INSS da empresa</label>
+          <label class="radio"><input type="radio" name="tipo" value="empregado"> Desconto do empregado</label>
+        </fieldset>
+        <div id="campos-empresa">
+          <p class="ajuda">20% patronal + RAT ajustado pelo FAP + terceiros sobre a folha; 20% sobre o pró-labore e 11% retido do sócio.</p>
+          <div class="linha">
+            <label>Folha de salários (R$)
+              <input type="text" inputmode="decimal" name="folha" placeholder="10.000,00">
+            </label>
+            <label>Pró-labore (R$)
+              <input type="text" inputmode="decimal" name="prolabore" placeholder="5.000,00">
+            </label>
+          </div>
+          <div class="linha">
+            <label>RAT (grau de risco)
+              <select name="rat" class="sel-rat"></select>
+            </label>
+            <label>FAP
+              <input type="text" inputmode="decimal" name="fap" value="1,0000">
+            </label>
+          </div>
+          <label>Terceiros — Sistema S, salário-educação, INCRA (%)
+            <input type="text" inputmode="decimal" name="terceiros" value="5,8">
+          </label>
+        </div>
+        <div id="campos-empregado" hidden>
+          <p class="ajuda">Contribuição progressiva descontada do salário, até o teto do INSS.</p>
+          <label>Salário bruto (R$)
+            <input type="text" inputmode="decimal" name="salario" placeholder="5.000,00">
+          </label>
+        </div>
         <button type="submit">Calcular</button>
       </form>
-      <div class="cartao resultado" id="res-efetiva" hidden></div>
+      <div class="cartao resultado" id="res-inss" hidden></div>
     </section>
 
-    <p class="aviso">Resultados estimados para fins informativos. Confirme os valores com um contador ou com a legislação vigente.</p>
+    <!-- ISS -->
+    <section class="painel" id="painel-iss" role="tabpanel" hidden>
+      <form class="cartao" id="form-iss">
+        <h2>ISS — Imposto Sobre Serviços</h2>
+        <p class="ajuda">Imposto municipal sobre a nota de serviço. Cada cidade define a alíquota, entre 2% e 5%.</p>
+        <label>Valor dos serviços (R$)
+          <input type="text" inputmode="decimal" name="receita" placeholder="10.000,00" required>
+        </label>
+        <label>Alíquota do município (%)
+          <input type="text" inputmode="decimal" name="aliquota" value="5" required>
+        </label>
+        <label class="check"><input type="checkbox" name="retido"> ISS retido pelo tomador do serviço</label>
+        <button type="submit">Calcular</button>
+      </form>
+      <div class="cartao resultado" id="res-iss" hidden></div>
+    </section>
+
+    <p class="aviso">Resultados estimados para fins informativos. Confirme os valores com um contador ou com a legislação do seu município.</p>
   </main>
 
   <script src="js/tabelas.js"></script>

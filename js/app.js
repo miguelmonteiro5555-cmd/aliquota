@@ -13,6 +13,8 @@
   }
 
   const linha = (rotulo, valor, classe = '') => `<tr class="${classe}"><td>${rotulo}</td><td>${valor}</td></tr>`;
+  const destaque = (titulo, valor, nota) =>
+    `<div class="destaque"><span>${titulo}</span><strong>${valor}</strong><small>${nota}</small></div>`;
 
   function mostrar(id, html) {
     const el = document.getElementById(id);
@@ -39,133 +41,153 @@
 
   document.getElementById('ano-tabelas').textContent = TABELAS.ano;
 
-  // Salário líquido
-  document.getElementById('form-salario').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const f = e.target.elements;
-    const bruto = numero(f.bruto.value);
-    if (bruto <= 0) return erro('res-salario', 'Informe um salário bruto maior que zero.');
-    const r = Calculos.calcularSalarioLiquido({
-      bruto,
-      dependentes: parseInt(f.dependentes.value, 10) || 0,
-      pensao: numero(f.pensao.value),
-      outros: numero(f.outros.value),
+  // Listas preenchidas a partir das tabelas
+  document.querySelectorAll('.sel-atividade').forEach((sel) => {
+    Object.entries(TABELAS.irpj.presuncao).forEach(([chave, a]) => {
+      sel.add(new Option(`${a.nome} — presunção ${pct(a.percentual, 1)}`, chave));
     });
-    const ir = r.irrf;
-    mostrar('res-salario', `
-      <div class="destaque">
-        <span>Salário líquido</span>
-        <strong>${brl.format(r.liquido)}</strong>
-        <small>Carga de INSS + IR: ${pct(r.cargaTributaria)}</small>
-      </div>
+  });
+  const nomesRisco = ['leve', 'médio', 'grave'];
+  document.querySelectorAll('.sel-rat').forEach((sel) => {
+    TABELAS.inss.ratOpcoes.forEach((r, i) => sel.add(new Option(`${pct(r, 0)} — risco ${nomesRisco[i]}`, r)));
+    sel.value = TABELAS.inss.ratOpcoes[1];
+  });
+
+  /** Mostra um grupo de campos ou outro conforme a opção marcada. */
+  function alternar(form, nome, grupos) {
+    const atualizar = () => {
+      const valor = form.elements[nome].value;
+      Object.entries(grupos).forEach(([opcao, id]) => {
+        document.getElementById(id).hidden = opcao !== valor;
+      });
+    };
+    form.querySelectorAll(`input[name=${nome}]`).forEach((r) => r.addEventListener('change', atualizar));
+    atualizar();
+  }
+
+  // Resumo
+  document.getElementById('form-resumo').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = e.target.elements;
+    const receita = numero(f.receita.value);
+    if (receita <= 0) return erro('res-resumo', 'Informe a receita bruta do mês.');
+    const r = Calculos.calcularResumo({
+      receita,
+      atividade: f.atividade.value,
+      aliquotaISS: numero(f.iss.value) / 100,
+      folha: numero(f.folha.value),
+      proLabore: numero(f.prolabore.value),
+      rat: Number(f.rat.value),
+    });
+    if (r.erro) return erro('res-resumo', r.erro);
+    const barras = r.itens
+      .map(
+        (i) => `
+        <div class="barra-item">
+          <div class="barra-rotulo"><span>${i.nome}</span><span>${brl.format(i.valor)} · ${pct(i.sobreReceita)} da receita</span></div>
+          <div class="barra"><div class="barra-valor" style="width:${(i.participacao * 100).toFixed(1)}%"></div></div>
+        </div>`
+      )
+      .join('');
+    mostrar('res-resumo', `
+      ${destaque('Total de IRPJ + INSS + ISS', brl.format(r.total), `Carga sobre a receita: ${pct(r.carga)}`)}
+      ${barras}
       <table>
-        ${linha('Salário bruto', brl.format(r.bruto))}
-        ${linha(`INSS ${r.inss.teto ? '(no teto)' : ''} — efetiva ${pct(r.inss.aliquotaEfetiva)}`, '− ' + brl.format(r.inss.valor))}
-        ${linha(`IRRF — efetiva ${pct(ir.aliquotaEfetiva)}`, '− ' + brl.format(ir.valor))}
-        ${r.pensao ? linha('Pensão alimentícia', '− ' + brl.format(r.pensao)) : ''}
-        ${r.outros ? linha('Outros descontos', '− ' + brl.format(r.outros)) : ''}
-        ${linha('Total de descontos', '− ' + brl.format(r.descontos), 'total')}
+        ${linha('Receita bruta', brl.format(receita))}
+        ${linha('Total dos 3 impostos', '− ' + brl.format(r.total))}
+        ${linha('Sobra após os impostos', brl.format(receita - r.total), 'total')}
       </table>
-      <details>
-        <summary>Como o IR foi calculado</summary>
+      <p class="ajuda nota">O INSS inclui os 11% retidos do pró-labore do sócio. No Lucro Presumido o IRPJ é apurado por trimestre; aqui ele aparece como média mensal. Não estão incluídos CSLL, PIS e COFINS.</p>
+    `);
+  });
+
+  // IRPJ
+  const formIRPJ = document.getElementById('form-irpj');
+  alternar(formIRPJ, 'regime', { presumido: 'campos-presumido', real: 'campos-real' });
+  formIRPJ.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = e.target.elements;
+    const regime = f.regime.value;
+    const meses = Number(f.meses.value);
+    const receita = numero(f.receita.value);
+    const lucro = numero(f.lucro.value);
+    if (regime === 'presumido' && receita <= 0) return erro('res-irpj', 'Informe a receita bruta do período.');
+    if (regime === 'real' && lucro <= 0) return erro('res-irpj', 'Informe o lucro do período. Se houve prejuízo, não há IRPJ a pagar.');
+    const r = Calculos.calcularIRPJ({ regime, receita, atividade: f.atividade.value, lucro, meses });
+    const nota = r.aliquotaSobreReceita !== null ? `${pct(r.aliquotaSobreReceita)} da receita` : 'Lucro Real';
+    mostrar('res-irpj', `
+      ${destaque(`IRPJ do ${meses === 3 ? 'trimestre' : 'mês'}`, brl.format(r.valor), nota)}
+      <table>
+        ${regime === 'presumido' ? linha('Receita bruta', brl.format(receita)) : ''}
+        ${regime === 'presumido' ? linha('Presunção de lucro', pct(r.presuncao, 1)) : ''}
+        ${linha('Base de cálculo (lucro)', brl.format(r.base))}
+        ${linha('IRPJ 15%', brl.format(r.normal))}
+        ${linha(`Adicional 10% acima de ${brl.format(r.limiteAdicional)}`, brl.format(r.adicional))}
+        ${linha('IRPJ a pagar', brl.format(r.valor), 'total')}
+      </table>
+      ${meses === 3 ? `<p class="ajuda nota">Pode ser pago em cota única ou em até 3 cotas mensais (mínimo de R$ 1.000 por cota).</p>` : ''}
+    `);
+  });
+
+  // INSS
+  const formINSS = document.getElementById('form-inss');
+  alternar(formINSS, 'tipo', { empresa: 'campos-empresa', empregado: 'campos-empregado' });
+  formINSS.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = e.target.elements;
+    if (f.tipo.value === 'empregado') {
+      const salario = numero(f.salario.value);
+      if (salario <= 0) return erro('res-inss', 'Informe o salário bruto.');
+      const r = Calculos.calcularINSSEmpregado(salario);
+      return mostrar('res-inss', `
+        ${destaque('Desconto de INSS', brl.format(r.valor), `Alíquota efetiva: ${pct(r.aliquotaEfetiva)}${r.teto ? ' — no teto' : ''}`)}
         <table>
-          ${linha(ir.usaSimplificado ? 'Desconto simplificado (mais vantajoso)' : 'Deduções legais (INSS, dependentes, pensão)', '− ' + brl.format(ir.deducao))}
-          ${linha('Base de cálculo', brl.format(ir.base))}
-          ${linha('Alíquota nominal da faixa', pct(ir.aliquotaNominal, 1))}
-          ${linha('Imposto pela tabela', brl.format(ir.impostoTabela))}
-          ${linha('Redução (Lei 15.270/2025)', '− ' + brl.format(ir.reducao))}
-          ${linha('IR a pagar', brl.format(ir.valor), 'total')}
+          ${r.detalhes.map((d) => linha(`${pct(d.aliquota, 1)} sobre ${brl.format(d.base)}`, brl.format(d.valor))).join('')}
+          ${linha('Salário após INSS', brl.format(salario - r.valor), 'total')}
         </table>
-        <p class="ajuda">INSS por faixa: ${r.inss.detalhes
-          .map((d) => `${pct(d.aliquota, 1)} sobre ${brl.format(d.base)} = ${brl.format(d.valor)}`)
-          .join('; ')}.</p>
-      </details>
-    `);
-  });
-
-  // Simples Nacional
-  const selAnexo = document.getElementById('sel-anexo');
-  Object.entries(TABELAS.simples.anexos).forEach(([chave, a]) => {
-    selAnexo.add(new Option(a.nome, chave));
-  });
-  const campoFolha = document.getElementById('campo-folha');
-  selAnexo.addEventListener('change', () => {
-    campoFolha.hidden = selAnexo.value !== 'V';
-  });
-
-  document.getElementById('form-simples').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const f = e.target.elements;
-    const rbt12 = numero(f.rbt12.value);
-    const mes = numero(f.mes.value);
-    if (rbt12 <= 0 || mes <= 0) return erro('res-simples', 'Informe a receita dos 12 meses e o faturamento do mês.');
-    const folha = selAnexo.value === 'V' && f.folha.value ? numero(f.folha.value) : null;
-    const r = Calculos.calcularSimples({ rbt12, faturamentoMes: mes, anexo: selAnexo.value, folha12: folha });
-    if (r.erro) return erro('res-simples', r.erro);
-    const notaFatorR =
-      r.fatorR === null
-        ? ''
-        : `<p class="ajuda">Fator R: ${pct(r.fatorR)} — ${
-            r.anexo === 'III'
-              ? 'igual ou acima de 28%, então a tributação segue o Anexo III.'
-              : 'abaixo de 28%, então a tributação segue o Anexo V.'
-          }</p>`;
-    mostrar('res-simples', `
-      <div class="destaque">
-        <span>DAS do mês</span>
-        <strong>${brl.format(r.das)}</strong>
-        <small>Alíquota efetiva: ${pct(r.aliquotaEfetiva)}</small>
-      </div>
+      `);
+    }
+    const folha = numero(f.folha.value);
+    const proLabore = numero(f.prolabore.value);
+    if (folha <= 0 && proLabore <= 0) return erro('res-inss', 'Informe a folha de salários ou o pró-labore.');
+    const r = Calculos.calcularINSSEmpresa({
+      folha,
+      proLabore,
+      rat: Number(f.rat.value),
+      fap: numero(f.fap.value) || 1,
+      terceiros: numero(f.terceiros.value) / 100,
+    });
+    mostrar('res-inss', `
+      ${destaque('Total da guia de INSS', brl.format(r.totalGuia), `Custo da empresa: ${pct(r.aliquotaSobreFolha)} sobre folha + pró-labore`)}
       <table>
-        ${linha('Anexo aplicado', r.nomeAnexo)}
-        ${linha('Faixa de receita', r.faixa + 'ª')}
-        ${linha('Alíquota nominal', pct(r.aliquotaNominal, 1))}
-        ${linha('Parcela a deduzir', brl.format(r.parcelaDeduzir))}
-        ${linha('Alíquota efetiva', pct(r.aliquotaEfetiva), 'total')}
+        ${linha('Patronal 20% sobre a folha', brl.format(r.patronalFolha))}
+        ${linha(`RAT ajustado (${pct(r.ratAjustado)})`, brl.format(r.ratValor))}
+        ${linha('Terceiros', brl.format(r.terceirosValor))}
+        ${linha('Patronal 20% sobre o pró-labore', brl.format(r.patronalProLabore))}
+        ${linha('Custo da empresa', brl.format(r.custoEmpresa), 'total')}
+        ${linha('11% retido do sócio', brl.format(r.retidoSocio))}
+        ${linha('Total da guia', brl.format(r.totalGuia), 'total')}
       </table>
-      ${notaFatorR}
+      <p class="ajuda nota">O INSS descontado dos empregados também vai na guia; calcule-o na opção “Desconto do empregado”. Empresas do Simples Nacional (exceto Anexo IV) não pagam o patronal à parte.</p>
     `);
   });
 
-  // Por dentro / por fora
-  document.getElementById('form-dentrofora').addEventListener('submit', (e) => {
+  // ISS
+  document.getElementById('form-iss').addEventListener('submit', (e) => {
     e.preventDefault();
     const f = e.target.elements;
-    const valor = numero(f.valor.value);
-    const aliquota = numero(f.aliquota.value) / 100;
-    if (valor <= 0 || aliquota <= 0) return erro('res-dentrofora', 'Informe valor e alíquota maiores que zero.');
-    const r = Calculos.calcularPorDentroPorFora({ valor, aliquota, modo: f.modo.value });
-    if (r.erro) return erro('res-dentrofora', r.erro);
-    const equivalente =
-      f.modo.value === 'dentro'
-        ? `Equivale a ${pct(r.aliquotaSobreBase)} calculado por fora sobre o valor sem imposto.`
-        : `Equivale a ${pct(r.aliquotaSobreTotal)} do valor total com imposto.`;
-    mostrar('res-dentrofora', `
-      <div class="destaque">
-        <span>Valor com imposto</span>
-        <strong>${brl.format(r.comImposto)}</strong>
-        <small>${equivalente}</small>
-      </div>
+    const receita = numero(f.receita.value);
+    if (receita <= 0) return erro('res-iss', 'Informe o valor dos serviços.');
+    const r = Calculos.calcularISS({ receita, aliquota: numero(f.aliquota.value) / 100, retido: f.retido.checked });
+    if (r.erro) return erro('res-iss', r.erro);
+    mostrar('res-iss', `
+      ${destaque('ISS', brl.format(r.valor), r.retido ? 'Retido e pago pelo tomador' : 'A recolher pela sua empresa')}
       <table>
-        ${linha('Valor sem imposto', brl.format(r.semImposto))}
-        ${linha('Imposto', brl.format(r.imposto))}
-        ${linha('Valor com imposto', brl.format(r.comImposto), 'total')}
+        ${linha('Valor dos serviços', brl.format(receita))}
+        ${linha('ISS', brl.format(r.valor))}
+        ${linha('ISS a recolher pela empresa', brl.format(r.aRecolher))}
+        ${linha('Valor recebido do cliente', brl.format(r.liquidoRecebido), 'total')}
       </table>
-    `);
-  });
-
-  // Alíquota efetiva
-  document.getElementById('form-efetiva').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const f = e.target.elements;
-    const r = Calculos.calcularAliquotaEfetiva({ base: numero(f.base.value), imposto: numero(f.imposto.value) });
-    if (r.erro) return erro('res-efetiva', r.erro);
-    mostrar('res-efetiva', `
-      <div class="destaque">
-        <span>Alíquota efetiva</span>
-        <strong>${pct(r.aliquota)}</strong>
-        <small>Valor líquido: ${brl.format(r.liquido)}</small>
-      </div>
     `);
   });
 })();

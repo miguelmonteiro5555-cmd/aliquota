@@ -88,7 +88,7 @@ input[type='text'], input[type='number'], select {
 }
 input:focus, select:focus { outline: 2px solid var(--primaria); outline-offset: 1px; }
 
-.linha { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.linha { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
 @media (max-width: 480px) { .linha { grid-template-columns: 1fr; } }
 
 .opcoes { border: 0; padding: 0; margin: 0 0 14px; }
@@ -132,3 +132,13 @@ details .ajuda { margin-top: 10px; }
 
 .erro { color: var(--erro); margin: 0; font-weight: 600; }
 .aviso { color: var(--suave); font-size: 0.82rem; text-align: center; margin: 24px 0 40px; }
+
+.check { display: flex; align-items: center; gap: 8px; font-weight: 400; }
+.nota { margin: 14px 0 0; }
+
+.barra-item { margin-bottom: 12px; }
+.barra-rotulo { display: flex; justify-content: space-between; gap: 8px; font-size: 0.9rem; margin-bottom: 4px; }
+.barra-rotulo span:first-child { font-weight: 700; }
+.barra-rotulo span:last-child { color: var(--suave); font-variant-numeric: tabular-nums; text-align: right; }
+.barra { height: 10px; background: var(--borda); border-radius: 999px; overflow: hidden; }
+.barra-valor { height: 100%; background: var(--primaria); border-radius: 999px; }

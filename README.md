@@ -1,11 +1,11 @@
-# Alíquota — Calculadora de Impostos
+# Alíquota — IRPJ, INSS e ISS
 
-Site estático (HTML, CSS e JavaScript puro, sem dependências) para cálculos tributários do Brasil:
+App web estático (HTML, CSS e JavaScript puro, sem dependências) para calcular os três principais impostos de uma empresa de serviços:
 
-- **Salário líquido (CLT)**: INSS progressivo e IRRF, com dependentes, pensão, escolha automática do desconto simplificado e a redução da Lei 15.270/2025 (isenção até R$ 5.000 a partir de 2026).
-- **Simples Nacional**: alíquota efetiva e valor do DAS pelos Anexos I a V, incluindo o Fator R.
-- **Imposto por dentro / por fora**: preço final a partir do valor sem imposto e a alíquota equivalente.
-- **Alíquota efetiva**: percentual real a partir do valor bruto e do imposto pago.
+- **Resumo**: IRPJ + INSS + ISS do mês, com o peso de cada um e a carga total sobre a receita.
+- **IRPJ**: Lucro Presumido (presunção por atividade) ou Lucro Real, por mês ou trimestre, com o adicional de 10% acima de R$ 20.000/mês.
+- **INSS**: contribuição da empresa (20% patronal, RAT × FAP, terceiros, pró-labore e 11% retido do sócio) e desconto progressivo do empregado.
+- **ISS**: imposto municipal de 2% a 5%, com opção de retenção pelo tomador.
 
 ## Como usar
 
@@ -22,7 +22,7 @@ Para publicar de graça, ative o **GitHub Pages** no repositório (Settings → 
 
 | Arquivo | Conteúdo |
 | --- | --- |
-| `js/tabelas.js` | Todas as tabelas e alíquotas (INSS, IRRF, Simples). **Atualize aqui quando a lei mudar.** |
+| `js/tabelas.js` | Todas as alíquotas e tabelas (IRPJ, INSS, ISS). **Atualize aqui quando a lei mudar.** |
 | `js/calculos.js` | Funções de cálculo puras, sem acesso à página |
 | `js/app.js` | Interface: leitura dos formulários e exibição dos resultados |
 | `tests/` | Testes dos cálculos |
@@ -30,7 +30,7 @@ Para publicar de graça, ative o **GitHub Pages** no repositório (Settings → 
 ## Testes
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 ```
 
-> Os resultados são estimativas para fins informativos. Confirme os valores com um contador ou com a legislação vigente.
+> Os resultados são estimativas para fins informativos. Confirme os valores com um contador ou com a legislação do seu município.
