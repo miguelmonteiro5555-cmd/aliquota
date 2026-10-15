@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alíquota — Calculadora de Impostos</title>
+  <meta name="description" content="Calcule salário líquido (INSS e IRRF), DAS do Simples Nacional, imposto por dentro e por fora e alíquota efetiva.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="container">
+      <h1>Alíquota</h1>
+      <p>Calculadora de impostos e alíquotas — tabelas de <span id="ano-tabelas">2026</span></p>
+    </div>
+  </header>
+
+  <main class="container">
+    <nav class="abas" role="tablist">
+      <button role="tab" class="aba ativa" data-aba="salario" aria-selected="true">Salário líquido</button>
+      <button role="tab" class="aba" data-aba="simples" aria-selected="false">Simples Nacional</button>
+      <button role="tab" class="aba" data-aba="dentrofora" aria-selected="false">Por dentro / por fora</button>
+      <button role="tab" class="aba" data-aba="efetiva" aria-selected="false">Alíquota efetiva</button>
+    </nav>
+
+    <!-- Salário líquido -->
+    <section class="painel ativo" id="painel-salario" role="tabpanel">
+      <form class="cartao" id="form-salario">
+        <h2>Salário líquido (CLT)</h2>
+        <p class="ajuda">Calcula INSS e Imposto de Renda retido na fonte, já com a isenção até R$ 5.000 em vigor desde 2026.</p>
+        <label>Salário bruto (R$)
+          <input type="text" inputmode="decimal" name="bruto" placeholder="5.000,00" required>
+        </label>
+        <div class="linha">
+          <label>Dependentes
+            <input type="number" name="dependentes" min="0" step="1" value="0">
+          </label>
+          <label>Pensão alimentícia (R$)
+            <input type="text" inputmode="decimal" name="pensao" placeholder="0,00">
+          </label>
+        </div>
+        <label>Outros descontos (R$)
+          <input type="text" inputmode="decimal" name="outros" placeholder="Plano de saúde, VT…">
+        </label>
+        <button type="submit">Calcular</button>
+      </form>
+      <div class="cartao resultado" id="res-salario" hidden></div>
+    </section>
+
+    <!-- Simples Nacional -->
+    <section class="painel" id="painel-simples" role="tabpanel" hidden>
+      <form class="cartao" id="form-simples">
+        <h2>DAS do Simples Nacional</h2>
+        <p class="ajuda">A alíquota efetiva depende da receita bruta dos últimos 12 meses (RBT12) e do anexo da atividade.</p>
+        <label>Anexo da atividade
+          <select name="anexo" id="sel-anexo"></select>
+        </label>
+        <label>Receita bruta dos últimos 12 meses — RBT12 (R$)
+          <input type="text" inputmode="decimal" name="rbt12" placeholder="300.000,00" required>
+        </label>
+        <label>Faturamento do mês (R$)
+          <input type="text" inputmode="decimal" name="mes" placeholder="25.000,00" required>
+        </label>
+        <label id="campo-folha" hidden>Folha de salários dos últimos 12 meses (R$) — Fator R
+          <input type="text" inputmode="decimal" name="folha" placeholder="Inclua pró-labore e encargos">
+        </label>
+        <button type="submit">Calcular</button>
+      </form>
+      <div class="cartao resultado" id="res-simples" hidden></div>
+    </section>
+
+    <!-- Por dentro / por fora -->
+    <section class="painel" id="painel-dentrofora" role="tabpanel" hidden>
+      <form class="cartao" id="form-dentrofora">
+        <h2>Imposto por dentro ou por fora</h2>
+        <p class="ajuda"><strong>Por fora</strong>: o imposto é somado ao valor (ex.: IPI). <strong>Por dentro</strong>: o imposto faz parte do próprio preço (ex.: ICMS, ISS, PIS/COFINS).</p>
+        <label>Valor sem imposto (R$)
+          <input type="text" inputmode="decimal" name="valor" placeholder="100,00" required>
+        </label>
+        <label>Alíquota (%)
+          <input type="text" inputmode="decimal" name="aliquota" placeholder="18" required>
+        </label>
+        <fieldset class="opcoes">
+          <legend>Forma de cálculo</legend>
+          <label class="radio"><input type="radio" name="modo" value="dentro" checked> Por dentro</label>
+          <label class="radio"><input type="radio" name="modo" value="fora"> Por fora</label>
+        </fieldset>
+        <button type="submit">Calcular</button>
+      </form>
+      <div class="cartao resultado" id="res-dentrofora" hidden></div>
+    </section>
+
+    <!-- Alíquota efetiva -->
+    <section class="painel" id="painel-efetiva" role="tabpanel" hidden>
+      <form class="cartao" id="form-efetiva">
+        <h2>Descubra a alíquota efetiva</h2>
+        <p class="ajuda">Informe o valor bruto e o total de imposto pago para saber quanto ele representa de fato.</p>
+        <label>Valor bruto (R$)
+          <input type="text" inputmode="decimal" name="base" placeholder="10.000,00" required>
+        </label>
+        <label>Imposto pago (R$)
+          <input type="text" inputmode="decimal" name="imposto" placeholder="1.500,00" required>
+        </label>
+        <button type="submit">Calcular</button>
+      </form>
+      <div class="cartao resultado" id="res-efetiva" hidden></div>
+    </section>
+
+    <p class="aviso">Resultados estimados para fins informativos. Confirme os valores com um contador ou com a legislação vigente.</p>
+  </main>
+
+  <script src="js/tabelas.js"></script>
+  <script src="js/calculos.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
